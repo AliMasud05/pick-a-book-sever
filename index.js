@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config();
 const port = process.env.PORT || 5000;
 const app = express();
@@ -21,7 +21,31 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
 
 async function run(){
   try{
+      const booksTitleCollection = client.db('Pic-a-Book').collection('booksTitle');
+    const productItemsCollection = client.db('Pic-a-Book').collection('ProductItems');
+    const bookingCollection = client.db('Pic-a-Book').collection('Booking');
 
+      app.get('/booktitle', async(req, res)=>{
+        const query ={};
+        const title =await booksTitleCollection.find(query).toArray();
+        res.send(title);
+      });
+      app.get('/category/:id', async(req, res)=>{
+        const id =req.params.id;
+        const query ={_id:ObjectId(id)};
+        const result = await booksTitleCollection.findOne(query);
+        const query2 ={category:result.categoryName}
+        const result2 =await productItemsCollection.find(query2).toArray();
+
+      res.send(result2);
+      });
+    app.post('/bookings', async (req, res) => {
+      const user = req.body;
+      console.log(user);
+      const result = await bookingCollection.insertOne(user);
+      res.send(result);
+    });
+   
   }
   finally{
 
