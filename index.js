@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+var jwt = require('jsonwebtoken');
 require("dotenv").config();
 const port = process.env.PORT || 5000;
 const app = express();
@@ -12,12 +13,27 @@ app.use(cors());
 app.use(express.json());
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.memgfjc.mongodb.net/?retryWrites=true&w=majority`;
-console.log(uri);
+
+
 const client = new MongoClient(uri, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
   serverApi: ServerApiVersion.v1,
 });
+function verifyJWT(req, res, next) {
+  const authHeader = req.headers.authorization
+  if (!authHeader) {
+    return res.status(401).send({ message: 'unauthorize access' })
+  }
+  const token = authHeader.split(' ')[1]
+  jwt.verify(token, process.env.ACCES_TOKEN_SECRET, function (err, decoded) {
+    if (err) {
+      return res.status(401).send({ message: 'unauthorize access' })
+    }
+    req.decoded = decoded;
+    next()
+  })
+}
 // const collection = client.db("test").collection("devices");
 
 async function run() {
@@ -42,6 +58,8 @@ async function run() {
       res.send(result2);
     });
     app.post("/bookings", async (req, res) => {
+      
+     
       const user = req.body;
 
       const result = await bookingCollection.insertOne(user);
@@ -58,13 +76,22 @@ async function run() {
       const result = await productItemsCollection.insertOne(user);
       res.send(result);
     });
-    app.get('/user',  async (req, res) => {
+    app.get('/user', async (req, res) => {
+     
+      
       const email=req.query.email;
       const result=await usersCollection.find({email:email}).toArray();
       res.send(result) 
     });
 
-    app.get('/buyers', async (req, res) => {
+    app.get('/buyers',verifyJWT, async (req, res) => {
+      const decoded = req.decoded
+      console.log(decoded.user)
+      console.log(req.query.email)
+      if (decoded.user !== req.query.email) {
+        res.send({ message: 'unauthorized access' })
+      }
+
       const cursor = await usersCollection.find({ role: "buyer" }).toArray()
       res.send(cursor)
     });
@@ -78,6 +105,52 @@ async function run() {
       const result=await productItemsCollection.find({email:email}).toArray();
       res.send(result) 
     });
+    app.get('/advertiseBooks', async (req, res) => {
+      const cursor = productItemsCollection.find({ advertise: true })
+      const result = await cursor.toArray()
+      res.send(result)
+    });
+    app.post('/jwt', (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACCES_TOKEN_SECRET, { expiresIn: '1h' })
+      res.send({ token })
+    }) 
+    app.get('/jwt', async (req, res) => {
+      const email = req.query.email;
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      if (user) {
+        const token = jwt.sign({ email }, process.env.ACCESS_TOKEN, { expiresIn: '1h' })
+        return res.send({ accessToken: token });
+      }
+      res.status(403).send({ accessToken: '' })
+    });
+    app.patch('/books/:id', async (req, res) => {
+
+      const id = req.params.id;
+      const productUpdateData = req.body;
+      const filter = {
+        _id: ObjectId(id)
+      }
+      const updateDoc = {
+        $set: productUpdateData
+      }
+      const result = await productItemsCollection.updateOne(filter, updateDoc)
+
+      res.send(result)
+    })
+    app.patch('/verify/:id', async (req, res) => {
+      const id = req.params.id;
+      const productUpdateData = req.body;
+      const filter = {
+        _id: ObjectId(id)
+      }
+      const updateDoc = {
+        $set: productUpdateData
+      }
+      const result = await usersCollection.updateOne(filter, updateDoc)
+      res.send(result)
+    }) ;
     app.delete("/categories/:id", async (req, res) => {
       const id = req.params.id;
       console.log(id);
