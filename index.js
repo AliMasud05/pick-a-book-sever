@@ -68,7 +68,10 @@ async function run() {
       const cursor = await usersCollection.find({ role: "buyer" }).toArray()
       res.send(cursor)
     });
-    
+    app.get('/sellers', async (req, res) => {
+      const cursor = await usersCollection.find({ role: "seller" }).toArray()
+      res.send(cursor)
+    });
 
     app.get('/myproduct',  async (req, res) => {
       const email=req.query.email;
