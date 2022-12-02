@@ -63,6 +63,13 @@ async function run() {
       const result=await usersCollection.find({email:email}).toArray();
       res.send(result) 
     });
+
+    app.get('/buyers', async (req, res) => {
+      const cursor = await usersCollection.find({ role: "buyer" }).toArray()
+      res.send(cursor)
+    });
+    
+
     app.get('/myproduct',  async (req, res) => {
       const email=req.query.email;
       const result=await productItemsCollection.find({email:email}).toArray();
